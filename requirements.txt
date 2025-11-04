@@ -1,0 +1,42 @@
+# Core deep learning
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Diffusion and transformers
+diffusers>=0.29.0
+accelerate>=0.33.0
+transformers>=4.44.0
+peft>=0.11.0
+
+# Performance (optional; may require specific wheels on Windows)
+# xformers>=0.0.27
+
+# Computer vision and image processing
+opencv-python>=4.10.0.84
+Pillow>=10.4.0
+scikit-image>=0.24.0
+
+# Metrics
+lpips>=0.1.4
+pytorch-fid>=0.3.0
+torchmetrics>=1.5.0
+
+# Visualization & tracking
+matplotlib>=3.9.0
+seaborn>=0.13.2
+plotly>=5.24.1
+wandb>=0.18.0
+tensorboard>=2.17.0
+
+# CLIP (OpenAI). If this fails on Windows, install manually.
+# You can alternatively use open-clip-torch.
+# open-clip-torch>=2.26.1
+git+https://github.com/openai/CLIP.git
+
+# Utilities
+numpy>=1.26.0
+pandas>=2.2.0
+openpyxl>=3.1.5
+pyarrow>=17.0.0
+
+

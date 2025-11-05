@@ -1,0 +1,134 @@
+[
+  {
+    "model": "SD_v1.5",
+    "motif_id": "MTF_19",
+    "config": "literal_dress",
+    "output": "outputs\\model_comparison\\MTF_19_v15_literal_dress.png",
+    "time_seconds": 62.23193669319153,
+    "resolution": [
+      512,
+      512
+    ]
+  },
+  {
+    "model": "SD_v1.5",
+    "motif_id": "MTF_19",
+    "config": "moderate_blouse",
+    "output": "outputs\\model_comparison\\MTF_19_v15_moderate_blouse.png",
+    "time_seconds": 80.16875076293945,
+    "resolution": [
+      512,
+      512
+    ]
+  },
+  {
+    "model": "SDXL",
+    "motif_id": "MTF_19",
+    "config": "literal_dress",
+    "output": "outputs\\model_comparison\\MTF_19_sdxl_literal_dress.png",
+    "time_seconds": 326.9993963241577,
+    "resolution": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "model": "SDXL",
+    "motif_id": "MTF_19",
+    "config": "moderate_blouse",
+    "output": "outputs\\model_comparison\\MTF_19_sdxl_moderate_blouse.png",
+    "time_seconds": 432.7434833049774,
+    "resolution": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "model": "SD_v1.5",
+    "motif_id": "MTF_361",
+    "config": "literal_dress",
+    "output": "outputs\\model_comparison\\MTF_361_v15_literal_dress.png",
+    "time_seconds": 65.73885226249695,
+    "resolution": [
+      512,
+      512
+    ]
+  },
+  {
+    "model": "SD_v1.5",
+    "motif_id": "MTF_361",
+    "config": "moderate_blouse",
+    "output": "outputs\\model_comparison\\MTF_361_v15_moderate_blouse.png",
+    "time_seconds": 85.148029088974,
+    "resolution": [
+      512,
+      512
+    ]
+  },
+  {
+    "model": "SDXL",
+    "motif_id": "MTF_361",
+    "config": "literal_dress",
+    "output": "outputs\\model_comparison\\MTF_361_sdxl_literal_dress.png",
+    "time_seconds": 340.0783302783966,
+    "resolution": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "model": "SDXL",
+    "motif_id": "MTF_361",
+    "config": "moderate_blouse",
+    "output": "outputs\\model_comparison\\MTF_361_sdxl_moderate_blouse.png",
+    "time_seconds": 463.3964116573334,
+    "resolution": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "model": "SD_v1.5",
+    "motif_id": "MTF_467",
+    "config": "literal_dress",
+    "output": "outputs\\model_comparison\\MTF_467_v15_literal_dress.png",
+    "time_seconds": 68.69980716705322,
+    "resolution": [
+      512,
+      512
+    ]
+  },
+  {
+    "model": "SD_v1.5",
+    "motif_id": "MTF_467",
+    "config": "moderate_blouse",
+    "output": "outputs\\model_comparison\\MTF_467_v15_moderate_blouse.png",
+    "time_seconds": 85.07321953773499,
+    "resolution": [
+      512,
+      512
+    ]
+  },
+  {
+    "model": "SDXL",
+    "motif_id": "MTF_467",
+    "config": "literal_dress",
+    "output": "outputs\\model_comparison\\MTF_467_sdxl_literal_dress.png",
+    "time_seconds": 349.1880073547363,
+    "resolution": [
+      1024,
+      1024
+    ]
+  },
+  {
+    "model": "SDXL",
+    "motif_id": "MTF_467",
+    "config": "moderate_blouse",
+    "output": "outputs\\model_comparison\\MTF_467_sdxl_moderate_blouse.png",
+    "time_seconds": 472.9999408721924,
+    "resolution": [
+      1024,
+      1024
+    ]
+  }
+]

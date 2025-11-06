@@ -2,41 +2,48 @@
 torch>=2.1.0
 torchvision>=0.16.0
 
-# Diffusion and transformers
-diffusers>=0.29.0
-accelerate>=0.33.0
-transformers>=4.44.0
-peft>=0.11.0
+# GAN frameworks and utilities
+stylegan3>=0.0.1  # If available via pip, otherwise install from repo
+ninja>=1.11.1  # Required for StyleGAN3
 
-# Performance (optional; may require specific wheels on Windows)
-# xformers>=0.0.27
+# For LLM-based semantic analysis
+transformers>=4.44.0
+openai>=1.0.0  # For GPT API access (optional)
 
 # Computer vision and image processing
 opencv-python>=4.10.0.84
 Pillow>=10.4.0
 scikit-image>=0.24.0
 
-# Metrics
-lpips>=0.1.4
-pytorch-fid>=0.3.0
+# Metrics for GAN evaluation
+lpips>=0.1.4  # Perceptual similarity
+pytorch-fid>=0.3.0  # Fréchet Inception Distance
 torchmetrics>=1.5.0
+scipy>=1.11.0  # For statistical metrics
 
 # Visualization & tracking
 matplotlib>=3.9.0
 seaborn>=0.13.2
 plotly>=5.24.1
-wandb>=0.18.0
+wandb>=0.18.0  # Experiment tracking
 tensorboard>=2.17.0
 
-# CLIP (OpenAI). If this fails on Windows, install manually.
-# You can alternatively use open-clip-torch.
-# open-clip-torch>=2.26.1
+# CLIP for feature extraction and evaluation
 git+https://github.com/openai/CLIP.git
 
 # Utilities
 numpy>=1.26.0
 pandas>=2.2.0
-openpyxl>=3.1.5
+openpyxl>=3.1.5  # For dataset.xlsx
 pyarrow>=17.0.0
+tqdm>=4.66.0  # Progress bars
+pyyaml>=6.0.0  # Configuration files
 
+# Optional: For advanced geometric analysis
+shapely>=2.0.0  # Geometric operations
+scikit-learn>=1.5.0  # Clustering and analysis
 
+# Note: StyleGAN3 may need to be installed from official repo:
+# git clone https://github.com/NVlabs/stylegan3.git
+# cd stylegan3
+# pip install -r requirements.txt

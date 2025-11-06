@@ -1,0 +1,161 @@
+# StyleGAN3 Configuration for Greek Motif Generation
+# Based on CDGFD methodology for authentic cultural preservation
+
+model:
+  name: "StyleGAN3_Greek_Motifs"
+  architecture: "stylegan3-t"  # Translation-equivariant
+  
+  generator:
+    latent_dim: 512
+    output_resolution: 512
+    num_channels: 3  # RGB
+    mapping_network_depth: 8
+    synthesis_layers: 14
+    
+  discriminator:
+    input_resolution: 512
+    num_channels: 3
+    architecture: "residual"
+    
+  conditioning:
+    enabled: true
+    type: "regional"  # Condition on Greek regions
+    num_regions: 11
+    embedding_dim: 128
+
+training:
+  batch_size: 16
+  num_epochs: 1000
+  
+  learning_rate:
+    generator: 0.0025
+    discriminator: 0.0025
+    mapping_network: 0.00025
+  
+  betas: [0.0, 0.99]  # Adam optimizer betas
+  
+  loss:
+    adversarial_weight: 1.0
+    r1_regularization: 10.0  # Gradient penalty
+    path_length_regularization: 2.0
+    
+    # Custom authenticity loss
+    authenticity_weight: 0.5
+    geometric_consistency_weight: 0.3
+    color_preservation_weight: 0.2
+  
+  progressive_growing:
+    enabled: false  # StyleGAN3 doesn't need progressive growing
+  
+  augmentation:
+    enabled: true
+    probability: 0.6
+    operations:
+      - "horizontal_flip"
+      - "rotation_90"
+      # No color jitter - preserve traditional colors
+      # No modern filters - maintain authenticity
+
+dataset:
+  root_dir: "data/processed"
+  metadata_file: "data/processed/metadata.csv"
+  
+  image_size: 512
+  normalize: true
+  mean: [0.5, 0.5, 0.5]
+  std: [0.5, 0.5, 0.5]
+  
+  regions:
+    - "Aegean_Islands"
+    - "Cyclades"
+    - "Dodecanese"
+    - "Epirus"
+    - "Greece"
+    - "Lesvos"
+    - "North_Aegean"
+    - "Rhodes"
+    - "Thessaly"
+    - "Thrace"
+    - "Turkey"
+  
+  train_split: 0.85
+  val_split: 0.10
+  test_split: 0.05
+
+evaluation:
+  metrics:
+    - "fid"  # Fréchet Inception Distance
+    - "is"   # Inception Score
+    - "precision_recall"
+    - "lpips"  # Perceptual similarity
+    
+  authenticity:
+    geometric_features: true
+    color_histogram: true
+    symmetry_preservation: true
+    cultural_expert_review: true
+  
+  frequency:
+    save_checkpoint: 50  # epochs
+    evaluate_metrics: 10  # epochs
+    generate_samples: 5   # epochs
+
+logging:
+  experiment_name: "greek_motifs_stylegan3"
+  use_wandb: true
+  wandb_project: "CulturalGaN"
+  
+  save_dir: "outputs/experiments"
+  checkpoint_dir: "models/checkpoints"
+  
+  log_frequency: 100  # iterations
+  save_images_count: 16  # per evaluation
+
+hardware:
+  device: "cuda"
+  num_gpus: 1
+  mixed_precision: true  # Use AMP for faster training
+  
+  num_workers: 4
+  pin_memory: true
+
+# Cultural preservation guidelines
+preservation:
+  # NO modern adaptations
+  allow_color_modification: false
+  allow_geometric_distortion: false
+  allow_style_mixing: false  # Only within same region
+  
+  # Maintain authenticity
+  preserve_symmetry: true
+  preserve_traditional_palette: true
+  respect_regional_characteristics: true
+  
+  # Expert validation
+  require_expert_approval: true
+  cultural_sensitivity_check: true
+
+# CDGFD-specific settings
+cdgfd:
+  # Symbolic analysis using LLMs
+  semantic_analysis:
+    enabled: true
+    model: "gpt-4"  # For motif description generation
+    
+  # Geometric feature extraction
+  geometric_analysis:
+    symmetry_detection: true
+    pattern_recognition: true
+    edge_complexity: true
+  
+  # Cross-domain generalization
+  domain_adaptation:
+    enabled: true
+    source_domains: ["pottery", "textile", "carving"]
+    target_domain: "digital_generation"
+  
+  # Sim-to-real transfer
+  sim_to_real:
+    validate_physical_reproducibility: true
+    check_textile_printability: true
+

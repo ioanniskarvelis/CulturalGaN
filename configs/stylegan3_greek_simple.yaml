@@ -1,0 +1,53 @@
+# StyleGAN3 Training Configuration for Greek Motifs
+# Simplified practical configuration
+
+# Model architecture
+img_resolution: 512
+img_channels: 3
+z_dim: 512
+w_dim: 512
+condition_dim: 11  # Number of regions
+
+# Training parameters
+batch_size: 8  # Adjust based on GPU memory
+n_epochs: 500
+g_lr: 0.002  # Generator learning rate
+d_lr: 0.002  # Discriminator learning rate
+beta1: 0.0
+beta2: 0.99
+
+# Loss weights
+lambda_gp: 10.0  # Gradient penalty for WGAN-GP
+lambda_auth: 0.5  # Authenticity loss weight
+
+# Data
+data_dir: "data/processed"
+embeddings_dir: "data/embeddings"
+use_embeddings: true
+num_workers: 4
+
+# Saving
+checkpoint_dir: "models/checkpoints"
+sample_dir: "outputs/samples"
+save_interval: 10  # Save checkpoint every N epochs
+sample_interval: 5  # Generate samples every N epochs
+
+# Cultural preservation
+preserve_colors: true
+preserve_geometry: true
+preserve_symmetry: true
+
+# Regions (for reference)
+regions:
+  - "Aegean_Islands"
+  - "Cyclades"
+  - "Dodecanese"
+  - "Epirus"
+  - "Greece"
+  - "Lesvos"
+  - "North_Aegean"
+  - "Rhodes"
+  - "Thessaly"
+  - "Thrace"
+  - "Turkey"
+

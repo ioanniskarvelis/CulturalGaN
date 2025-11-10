@@ -9,6 +9,8 @@ ninja>=1.11.1  # Required for StyleGAN3
 # For LLM-based semantic analysis
 transformers>=4.44.0
 openai>=1.0.0  # For GPT API access (optional)
+anthropic>=0.40.0  # For Claude API access (optional)
+sentence-transformers>=3.3.1  # For semantic embeddings
 
 # Computer vision and image processing
 opencv-python>=4.10.0.84

@@ -20,6 +20,13 @@ beta2: 0.99
 lambda_gp: 10.0  # Gradient penalty for WGAN-GP
 lambda_auth: 0.5  # Authenticity loss weight
 
+# Authenticity loss components (weights should sum to ~1.0)
+use_clip_auth: false  # Use CLIP for visual features (slower but better)
+color_weight: 0.3  # Weight for color distribution matching
+geometric_weight: 0.3  # Weight for edge/geometric features
+visual_weight: 0.2  # Weight for visual features (CLIP)
+symmetry_weight: 0.2  # Weight for symmetry preservation
+
 # Data
 data_dir: "data/processed"
 embeddings_dir: "data/embeddings"
@@ -29,8 +36,17 @@ num_workers: 4
 # Saving
 checkpoint_dir: "models/checkpoints"
 sample_dir: "outputs/samples"
+log_dir: "logs"
 save_interval: 10  # Save checkpoint every N epochs
 sample_interval: 5  # Generate samples every N epochs
+log_interval: 10  # Log metrics every N steps
+
+# Experiment tracking (WandB)
+use_wandb: false  # Enable Weights & Biases tracking
+wandb_project: "CulturalGaN"
+wandb_entity: null  # Your WandB username/team (optional)
+wandb_name: null  # Run name (auto-generated if null)
+wandb_watch: false  # Watch model gradients (expensive)
 
 # Cultural preservation
 preserve_colors: true

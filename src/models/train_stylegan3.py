@@ -7,7 +7,9 @@ import os
 import sys
 import argparse
 import yaml
+import logging
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, Optional
 import torch
 import torch.nn as nn
@@ -22,6 +24,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.models.stylegan3_model import build_stylegan3
 from src.data_processing.motif_dataset import create_dataloaders
+from src.models.authenticity_loss import AuthenticityLoss
+from src.utils.logger import setup_logger, TrainingLogger
+
+# Optional WandB integration
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
 
 
 class StyleGAN3Trainer:
@@ -44,11 +55,23 @@ class StyleGAN3Trainer:
         """
         self.config = config
         self.device = device if torch.cuda.is_available() else "cpu"
-        
-        print(f"Using device: {self.device}")
+
+        # Setup logging
+        log_dir = config.get('log_dir', 'logs')
+        self.logger = setup_logger(
+            name="StyleGAN3Trainer",
+            log_dir=log_dir,
+            level=logging.INFO
+        )
+        self.training_logger = TrainingLogger(
+            self.logger,
+            log_interval=config.get('log_interval', 10)
+        )
+
+        self.logger.info(f"Using device: {self.device}")
         
         # Build models
-        print("Building models...")
+        self.logger.info("Building models...")
         self.generator, self.discriminator = build_stylegan3(
             img_resolution=config['img_resolution'],
             z_dim=config['z_dim'],
@@ -56,15 +79,15 @@ class StyleGAN3Trainer:
             condition_dim=config['condition_dim'],
             img_channels=config['img_channels']
         )
-        
+
         self.generator = self.generator.to(self.device)
         self.discriminator = self.discriminator.to(self.device)
-        
+
         # Count parameters
         g_params = sum(p.numel() for p in self.generator.parameters())
         d_params = sum(p.numel() for p in self.discriminator.parameters())
-        print(f"  Generator: {g_params:,} parameters")
-        print(f"  Discriminator: {d_params:,} parameters")
+        self.logger.info(f"  Generator: {g_params:,} parameters")
+        self.logger.info(f"  Discriminator: {d_params:,} parameters")
         
         # Optimizers
         self.g_optimizer = torch.optim.Adam(
@@ -82,16 +105,53 @@ class StyleGAN3Trainer:
         # Loss weights
         self.lambda_gp = config.get('lambda_gp', 10.0)  # Gradient penalty
         self.lambda_auth = config.get('lambda_auth', 0.5)  # Authenticity loss
-        
+
+        # Authenticity loss module
+        use_clip = config.get('use_clip_auth', False)  # Optional, can be slow
+        self.authenticity_loss = AuthenticityLoss(
+            device=self.device,
+            use_clip=use_clip,
+            color_weight=config.get('color_weight', 0.3),
+            geometric_weight=config.get('geometric_weight', 0.3),
+            visual_weight=config.get('visual_weight', 0.2),
+            symmetry_weight=config.get('symmetry_weight', 0.2)
+        )
+
         # Training state
         self.current_epoch = 0
         self.global_step = 0
-        
+
         # Create output directories
         self.checkpoint_dir = Path(config.get('checkpoint_dir', 'models/checkpoints'))
         self.sample_dir = Path(config.get('sample_dir', 'outputs/samples'))
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.sample_dir.mkdir(parents=True, exist_ok=True)
+
+        # WandB initialization (optional)
+        self.use_wandb = config.get('use_wandb', False)
+        if self.use_wandb:
+            if not WANDB_AVAILABLE:
+                self.logger.warning("WandB requested but not installed. Install with: pip install wandb")
+                self.use_wandb = False
+            else:
+                wandb_project = config.get('wandb_project', 'CulturalGaN')
+                wandb_name = config.get('wandb_name', f"StyleGAN3_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                wandb_entity = config.get('wandb_entity', None)
+
+                wandb.init(
+                    project=wandb_project,
+                    name=wandb_name,
+                    entity=wandb_entity,
+                    config=config,
+                    resume='allow'
+                )
+
+                # Watch models (optional, can be expensive)
+                if config.get('wandb_watch', False):
+                    wandb.watch(self.generator, log='all', log_freq=100)
+                    wandb.watch(self.discriminator, log='all', log_freq=100)
+
+                self.logger.info(f"✓ WandB tracking enabled: {wandb_project}/{wandb_name}")
     
     def compute_gradient_penalty(
         self,
@@ -129,42 +189,32 @@ class StyleGAN3Trainer:
     def compute_authenticity_loss(
         self,
         fake_images: torch.Tensor,
-        real_images: torch.Tensor
-    ) -> torch.Tensor:
+        real_images: torch.Tensor,
+        fake_embeddings: Optional[torch.Tensor] = None,
+        real_embeddings: Optional[torch.Tensor] = None
+    ) -> Dict[str, torch.Tensor]:
         """
-        Custom authenticity loss to preserve cultural features.
-        Matches color distributions and geometric properties.
+        Enhanced authenticity loss using multi-modal features.
+        Preserves cultural characteristics through color, geometry, symmetry, and embeddings.
+
+        Args:
+            fake_images: Generated images [batch, 3, H, W]
+            real_images: Real images [batch, 3, H, W]
+            fake_embeddings: Optional embeddings for fake images
+            real_embeddings: Optional embeddings for real images
+
+        Returns:
+            Dictionary with loss components
         """
-        # Color distribution matching (histogram matching)
-        fake_hist = fake_images.mean(dim=[2, 3])  # [batch, 3]
-        real_hist = real_images.mean(dim=[2, 3])
-        color_loss = nn.functional.mse_loss(fake_hist, real_hist)
-        
-        # Edge consistency (geometric preservation)
-        # Simple sobel filter approximation
-        sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]).float().to(self.device)
-        sobel_x = sobel_x.view(1, 1, 3, 3).repeat(3, 1, 1, 1)
-        
-        fake_edges = nn.functional.conv2d(
-            fake_images,
-            sobel_x,
-            padding=1,
-            groups=3
-        ).abs().mean()
-        
-        real_edges = nn.functional.conv2d(
-            real_images,
-            sobel_x,
-            padding=1,
-            groups=3
-        ).abs().mean()
-        
-        edge_loss = nn.functional.mse_loss(fake_edges, real_edges)
-        
-        # Combined authenticity loss
-        auth_loss = color_loss + 0.5 * edge_loss
-        
-        return auth_loss
+        # Use the comprehensive authenticity loss module
+        losses = self.authenticity_loss(
+            fake_images=fake_images,
+            real_images=real_images,
+            fake_embeddings=fake_embeddings,
+            real_embeddings=real_embeddings
+        )
+
+        return losses
     
     def train_step(
         self,
@@ -217,28 +267,43 @@ class StyleGAN3Trainer:
         # Generator loss (WGAN)
         fake_output = self.discriminator(fake_images, condition)
         g_loss_adv = -fake_output.mean()
-        
-        # Authenticity loss
-        auth_loss = self.compute_authenticity_loss(fake_images, real_images)
-        
+
+        # Authenticity loss (returns dictionary)
+        auth_losses = self.compute_authenticity_loss(fake_images, real_images)
+        auth_loss_total = auth_losses['total']
+
         # Total generator loss
-        g_loss = g_loss_adv + self.lambda_auth * auth_loss
-        
+        g_loss = g_loss_adv + self.lambda_auth * auth_loss_total
+
         # Update generator
         self.g_optimizer.zero_grad()
         g_loss.backward()
         self.g_optimizer.step()
-        
-        # Return losses
-        return {
+
+        # Return losses (including detailed authenticity losses)
+        loss_dict = {
             'd_loss': d_loss.item(),
             'd_loss_real': d_loss_real.item(),
             'd_loss_fake': d_loss_fake.item(),
             'gp': gp.item(),
             'g_loss': g_loss.item(),
             'g_loss_adv': g_loss_adv.item(),
-            'auth_loss': auth_loss.item()
+            'auth_loss': auth_loss_total.item(),
+            'auth_color': auth_losses['color'].item(),
+            'auth_geometric': auth_losses['geometric'].item(),
+            'auth_symmetry': auth_losses['symmetry'].item(),
+            'auth_visual': auth_losses['visual'].item()
         }
+
+        # Log to WandB if enabled
+        if self.use_wandb:
+            wandb.log({
+                **loss_dict,
+                'step': self.global_step,
+                'epoch': self.current_epoch
+            })
+
+        return loss_dict
     
     @torch.no_grad()
     def generate_samples(
@@ -263,19 +328,26 @@ class StyleGAN3Trainer:
     def save_samples(self, epoch: int, n_samples: int = 16):
         """Save sample images."""
         samples = self.generate_samples(n_samples)
-        
+
         # Denormalize from [-1, 1] to [0, 1]
         samples = (samples + 1) / 2
         samples = torch.clamp(samples, 0, 1)
-        
+
         # Create grid
         grid = torchvision.utils.make_grid(samples, nrow=4, padding=2)
-        
+
         # Save
         save_path = self.sample_dir / f"samples_epoch_{epoch:04d}.png"
         torchvision.utils.save_image(grid, save_path)
-        
-        print(f"  Saved samples to {save_path}")
+
+        self.logger.info(f"  Saved samples to {save_path}")
+
+        # Log to WandB if enabled
+        if self.use_wandb:
+            wandb.log({
+                'samples': wandb.Image(grid.cpu().numpy().transpose(1, 2, 0)),
+                'epoch': epoch
+            })
     
     def save_checkpoint(self, epoch: int, is_best: bool = False):
         """Save model checkpoint."""
@@ -297,22 +369,24 @@ class StyleGAN3Trainer:
         if is_best:
             best_path = self.checkpoint_dir / "best_model.pt"
             torch.save(checkpoint, best_path)
-            print(f"  Saved best model to {best_path}")
-    
+            self.training_logger.log_checkpoint(str(best_path), is_best=True)
+        else:
+            self.training_logger.log_checkpoint(str(checkpoint_path), is_best=False)
+
     def load_checkpoint(self, checkpoint_path: str):
         """Load checkpoint."""
-        print(f"Loading checkpoint from {checkpoint_path}")
+        self.logger.info(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        
+
         self.generator.load_state_dict(checkpoint['generator_state_dict'])
         self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
         self.g_optimizer.load_state_dict(checkpoint['g_optimizer_state_dict'])
         self.d_optimizer.load_state_dict(checkpoint['d_optimizer_state_dict'])
-        
+
         self.current_epoch = checkpoint['epoch']
         self.global_step = checkpoint.get('global_step', 0)
-        
-        print(f"  Resumed from epoch {self.current_epoch}")
+
+        self.logger.info(f"  Resumed from epoch {self.current_epoch}")
     
     def train(
         self,

@@ -9,6 +9,12 @@ from PIL import Image
 from pathlib import Path
 from typing import Optional, List, Tuple
 import argparse
+import sys
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.models.stylegan3_model import StyleGAN3Generator
 
 
 class GreekMotifGenerator:
@@ -41,29 +47,42 @@ class GreekMotifGenerator:
     def _load_generator(self, checkpoint_path: str):
         """
         Load generator model from checkpoint.
-        
+
         Args:
             checkpoint_path: Path to checkpoint file
-            
+
         Returns:
             Loaded generator model
         """
-        # TODO: Implement StyleGAN3 architecture loading
-        # For now, placeholder
+        print(f"Loading checkpoint from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        
-        # This would load your actual StyleGAN3 model
-        # generator = StyleGAN3Generator(...)
-        # generator.load_state_dict(checkpoint['generator_state_dict'])
-        
-        # Placeholder
-        class DummyGenerator(torch.nn.Module):
-            def forward(self, z, region_label=None):
-                # Placeholder: random image
-                batch_size = z.size(0)
-                return torch.randn(batch_size, 3, 512, 512)
-        
-        generator = DummyGenerator().to(self.device)
+
+        # Extract config from checkpoint
+        config = checkpoint.get('config', {})
+
+        # Get model parameters (with defaults matching stylegan3_greek_simple.yaml)
+        img_resolution = config.get('img_resolution', 512)
+        z_dim = config.get('z_dim', 512)
+        w_dim = config.get('w_dim', 512)
+        condition_dim = config.get('condition_dim', 11)
+        img_channels = config.get('img_channels', 3)
+
+        # Build generator architecture
+        generator = StyleGAN3Generator(
+            z_dim=z_dim,
+            w_dim=w_dim,
+            condition_dim=condition_dim,
+            img_resolution=img_resolution,
+            img_channels=img_channels
+        )
+
+        # Load trained weights
+        generator.load_state_dict(checkpoint['generator_state_dict'])
+        generator = generator.to(self.device)
+        generator.eval()
+
+        print(f"✓ Loaded generator (z_dim={z_dim}, resolution={img_resolution}x{img_resolution})")
+
         return generator
     
     def generate(
@@ -71,63 +90,71 @@ class GreekMotifGenerator:
         num_samples: int = 1,
         region: Optional[str] = None,
         seed: Optional[int] = None,
-        latent_vectors: Optional[torch.Tensor] = None
+        latent_vectors: Optional[torch.Tensor] = None,
+        truncation_psi: float = 0.7
     ) -> List[np.ndarray]:
         """
         Generate Greek motifs.
-        
+
         Args:
             num_samples: Number of motifs to generate
             region: Optional region conditioning (e.g., 'Cyclades')
             seed: Random seed for reproducibility
             latent_vectors: Optional pre-defined latent vectors
-            
+            truncation_psi: Truncation trick parameter (0.0-1.0, lower = more typical samples)
+
         Returns:
             List of generated images as numpy arrays
         """
         if seed is not None:
             torch.manual_seed(seed)
             np.random.seed(seed)
-        
+
         # Generate or use provided latent vectors
         if latent_vectors is None:
-            latent_dim = 512  # StyleGAN3 default
+            latent_dim = self.generator.z_dim
             latent_vectors = torch.randn(
                 num_samples, latent_dim
             ).to(self.device)
-        
+
         # Region conditioning (if model supports it)
-        region_label = None
+        region_condition = None
         if region is not None:
-            region_label = self._encode_region(region)
-        
+            region_condition = self._encode_region(region)
+            # Expand to match batch size
+            if region_condition.shape[0] == 1 and num_samples > 1:
+                region_condition = region_condition.repeat(num_samples, 1)
+
         # Generate images
         with torch.no_grad():
-            generated_images = self.generator(latent_vectors, region_label)
-        
+            generated_images = self.generator(
+                latent_vectors,
+                condition=region_condition,
+                truncation_psi=truncation_psi
+            )
+
         # Convert to numpy arrays
         images = []
         for i in range(num_samples):
             img = generated_images[i].cpu()
-            img = (img * 0.5 + 0.5).clamp(0, 1)  # Denormalize
+            img = (img * 0.5 + 0.5).clamp(0, 1)  # Denormalize from [-1, 1] to [0, 1]
             img = img.permute(1, 2, 0).numpy()
             img = (img * 255).astype(np.uint8)
             images.append(img)
-        
+
         return images
     
     def _encode_region(self, region: str) -> torch.Tensor:
         """
-        Encode region name to conditional vector.
-        
+        Encode region name to one-hot conditional vector.
+
         Args:
             region: Region name (e.g., 'Cyclades')
-            
+
         Returns:
-            Region encoding tensor
+            Region encoding tensor [1, num_regions]
         """
-        # TODO: Implement proper region encoding
-        # Placeholder: one-hot or learned embedding
+        # Region mapping (matching training data)
         region_map = {
             'Aegean_Islands': 0,
             'Cyclades': 1,
@@ -141,9 +168,15 @@ class GreekMotifGenerator:
             'Thrace': 9,
             'Turkey': 10
         }
-        
+
+        num_regions = 11
         region_id = region_map.get(region, 0)
-        return torch.tensor([region_id]).to(self.device)
+
+        # Create one-hot encoding
+        one_hot = torch.zeros(1, num_regions).to(self.device)
+        one_hot[0, region_id] = 1.0
+
+        return one_hot
     
     def save_images(
         self,
@@ -270,24 +303,32 @@ def main():
         default="cuda" if torch.cuda.is_available() else "cpu",
         help="Device to use (cuda/cpu)"
     )
-    
+    parser.add_argument(
+        "--truncation_psi",
+        type=float,
+        default=0.7,
+        help="Truncation trick parameter (0.0-1.0, lower = more typical samples)"
+    )
+
     args = parser.parse_args()
-    
+
     # Initialize generator
     generator = GreekMotifGenerator(
         checkpoint_path=args.checkpoint,
         device=args.device
     )
-    
+
     # Generate motifs
     print(f"Generating {args.num_samples} motifs...")
     if args.region:
         print(f"Region conditioning: {args.region}")
-    
+    print(f"Truncation: {args.truncation_psi}")
+
     images = generator.generate(
         num_samples=args.num_samples,
         region=args.region,
-        seed=args.seed
+        seed=args.seed,
+        truncation_psi=args.truncation_psi
     )
     
     # Save images
